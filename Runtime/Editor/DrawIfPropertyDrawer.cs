@@ -93,7 +93,7 @@ public class DrawIfPropertyDrawer : PropertyDrawer
         if (conditionMet)
         {
             EditorGUI.indentLevel++;
-            EditorGUI.LabelField(position, property.name);
+            EditorGUI.LabelField(position, ObjectNames.NicifyVariableName(property.name));
             EditorGUI.PropertyField(position, property);
             EditorGUI.indentLevel--;
         }
