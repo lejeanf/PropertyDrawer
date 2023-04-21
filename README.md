@@ -9,9 +9,10 @@ In order to find this package in unity's package manager make sure to add the sc
 	- scope fr.jeanf
 
 Usage:
-public bool myBool = false;									// this bool is used as the condition for the property drawer, it can also be used elsewhere.
-[DrawIf("myBool", false, ComparisonType.Equals, DisablingType.DontDraw)]	// this is how you use the condition.
-[SerializeField] public Transform myTransform; 						// this is the property you want to show conditionally
+
+public bool myBool = false;
+[DrawIf("myBool", false, ComparisonType.Equals, DisablingType.DontDraw)]
+[SerializeField] public Transform myTransform; 
 
 
 Credits:
