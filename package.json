@@ -1,0 +1,21 @@
+{
+  "name":"fr.jeanf.propertydrawer",
+  "version":"0.0.1",
+  "displayName":"Event System",
+  "description":"This package helps hiding certain properties from the inspector using conditions",
+  "unity": "2021.3",
+  "keywords": [
+    "jeanf",
+    "event system"
+  ],
+  "author":{
+    "name":"Jean-François Robin",
+    "email":"robin.jeanfrancois@gmail.com",
+    "url":"https://jeanfrancoisrobin.art"
+  },
+  "dependencies": {
+  },
+  "samples": [ 
+    
+  ]
+}
