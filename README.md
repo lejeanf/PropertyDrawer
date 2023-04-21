@@ -1,6 +1,7 @@
 This package implements a simple property drawer. It helps hiding certains property from the Unity inspector using conditions without having to code a custom editor script every time.
 
 
+<sub> 
 In order to find this package in unity's package manager make sure to add the scoped registery to unity's ProjectSettings:
 - click new scopedRegisteries (+) in ProjectSettings/Package manager
 - set the following parameters:
@@ -9,10 +10,13 @@ In order to find this package in unity's package manager make sure to add the sc
 	- scope fr.jeanf
 
 Usage:
+</sub> 	
 
+```
 public bool myBool = false;
 [DrawIf("myBool", false, ComparisonType.Equals, DisablingType.DontDraw)]
 [SerializeField] public Transform myTransform; 
+```
 
 
 Credits:
