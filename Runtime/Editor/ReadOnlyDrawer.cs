@@ -1,4 +1,4 @@
-#if UNITY_EDITOR
+
 using UnityEngine;
 using UnityEditor;
 /// <summary>
@@ -17,6 +17,7 @@ public class ReadOnlyDrawer : PropertyDrawer
     /// <param name="label">Label.</param>
     public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
     {
+        #if UNITY_EDITOR    
         // Saving previous GUI enabled value
         var previousGUIState = GUI.enabled;
         // Disabling edit for property
@@ -25,6 +26,6 @@ public class ReadOnlyDrawer : PropertyDrawer
         EditorGUI.PropertyField(position, property, label);
         // Setting old GUI enabled value
         GUI.enabled = previousGUIState;
+        #endif
     }
 }
-#endif
