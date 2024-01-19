@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Exceptions
+namespace jeanf.propertyDrawer
 {
 
     /// <summary>

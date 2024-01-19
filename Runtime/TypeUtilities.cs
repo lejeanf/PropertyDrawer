@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Utilities
+namespace jeanf.propertyDrawer
 {
     public static class TypeUtilities
     {

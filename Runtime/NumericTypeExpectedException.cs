@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Exceptions
+namespace jeanf.propertyDrawer
 {
     /// <summary>
     /// An exception that is thrown whenever a numeric type is expected as an input somewhere but the input wasn't numeric.

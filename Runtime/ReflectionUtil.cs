@@ -1,12 +1,12 @@
-﻿using System;
-using System.Linq;
-using System.Reflection;
-using System.Collections;
-using System.Collections.Generic;
-using Exceptions;
+﻿
 
-namespace Utilities
+namespace jeanf.propertyDrawer
 {
+    using System;
+    using System.Linq;
+    using System.Reflection;
+    using System.Collections;
+    using System.Collections.Generic;
     public static class ReflectionUtil
     {
         private static Assembly[] _allAssemblies;

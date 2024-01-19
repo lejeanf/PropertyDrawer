@@ -1,32 +1,37 @@
- 
-using UnityEngine;
-using UnityEditor;
-/// <summary>
-/// This class contain custom drawer for ReadOnly attribute.
-/// </summary>
-public class ReadOnlyAttribute : PropertyAttribute { }
-
-#if UNITY_EDITOR   
-[CustomPropertyDrawer(typeof(ReadOnlyAttribute))]
-public class ReadOnlyDrawer : PropertyDrawer
+namespace jeanf.propertyDrawer
 {
+    using UnityEngine;
+    using UnityEditor;
+
     /// <summary>
-    /// Unity method for drawing GUI in Editor
+    /// This class contain custom drawer for ReadOnly attribute.
     /// </summary>
-    /// <param name="position">Position.</param>
-    /// <param name="property">Property.</param>
-    /// <param name="label">Label.</param>
-    public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
+    public class ReadOnlyAttribute : PropertyAttribute
     {
-        // Saving previous GUI enabled value
-        var previousGUIState = GUI.enabled;
-        // Disabling edit for property
-        GUI.enabled = false;
-        // Drawing Property
-        EditorGUI.PropertyField(position, property, label);
-        // Setting old GUI enabled value
-        GUI.enabled = previousGUIState;
-        
     }
-}
+
+#if UNITY_EDITOR
+    [CustomPropertyDrawer(typeof(ReadOnlyAttribute))]
+    public class ReadOnlyDrawer : PropertyDrawer
+    {
+        /// <summary>
+        /// Unity method for drawing GUI in Editor
+        /// </summary>
+        /// <param name="position">Position.</param>
+        /// <param name="property">Property.</param>
+        /// <param name="label">Label.</param>
+        public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
+        {
+            // Saving previous GUI enabled value
+            var previousGUIState = GUI.enabled;
+            // Disabling edit for property
+            GUI.enabled = false;
+            // Drawing Property
+            EditorGUI.PropertyField(position, property, label);
+            // Setting old GUI enabled value
+            GUI.enabled = previousGUIState;
+
+        }
+    }
 #endif
+}

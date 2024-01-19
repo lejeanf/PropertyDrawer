@@ -1,7 +1,7 @@
 ﻿#if UNITY_EDITOR
 using UnityEditor;
 
-namespace Utilities
+namespace jeanf.propertyDrawer
 {
     public static class SerializedPropertyExtentions
     {
