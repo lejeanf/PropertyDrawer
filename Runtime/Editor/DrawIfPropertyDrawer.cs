@@ -26,6 +26,7 @@
             // Set the global variables.
             drawIf = attribute as DrawIfAttribute;
             comparedField = property.serializedObject.FindProperty(drawIf.comparedPropertyName);
+            if(comparedField == null ) return;
 
             // Get the value of the compared field.
             object comparedFieldValue = comparedField.GetValue<object>();
