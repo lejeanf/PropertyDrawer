@@ -95,8 +95,10 @@
             if (conditionMet)
             {
                 EditorGUI.indentLevel++;
-                EditorGUI.LabelField(position, ObjectNames.NicifyVariableName(property.name));
+                //EditorGUI.LabelField(position, ObjectNames.NicifyVariableName(property.name));
+                //position.width -= 6; //box alignment fix
                 EditorGUI.PropertyField(position, property);
+                EditorGUILayout.Space(1);
                 EditorGUI.indentLevel--;
             }
             else

@@ -1,6 +1,6 @@
 {
   "name":"fr.jeanf.propertydrawer",
-  "version":"1.1.5",
+  "version":"1.1.6",
   "displayName":"Property drawer",
   "description":"This package helps hiding certain properties from the inspector using conditions",
   "unity": "2021.3",

@@ -1,4 +1,6 @@
-﻿namespace jeanf.propertyDrawer
+﻿using System.Reflection;
+
+namespace jeanf.propertyDrawer
 {
     using UnityEngine;
     using System;
@@ -21,6 +23,7 @@
         /// <param name="comparedValue">The value the property is being compared to.</param>
         /// <param name="comparisonType">The type of comparison the values will be compared by.</param>
         /// <param name="disablingType">The type of disabling that should happen if the condition is NOT met. Defaulted to DisablingType.DontDraw.</param>
+    
         public DrawIfAttribute(string comparedPropertyName, object comparedValue, ComparisonType comparisonType,
             DisablingType disablingType = DisablingType.DontDraw)
         {
