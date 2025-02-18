@@ -31,3 +31,6 @@ public bool myBool = false;
 Credits:
 - some of the code in this repository was found <a href="https://forum.unity.com/threads/draw-a-field-only-if-a-condition-is-met.448855/">here</a> I then tweaked it to my likings.
 
+LICENCE:
+
+<img src="https://licensebuttons.net/l/by-nc-sa/3.0/88x31.png"></img>
