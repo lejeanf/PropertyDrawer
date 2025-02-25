@@ -28,6 +28,7 @@ namespace jeanf.propertyDrawer
             GUI.enabled = false;
             // Drawing Property
             EditorGUI.PropertyField(position, property, label);
+            
             // Setting old GUI enabled value
             GUI.enabled = previousGUIState;
 

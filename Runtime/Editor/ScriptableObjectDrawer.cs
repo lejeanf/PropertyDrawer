@@ -28,7 +28,7 @@ namespace jeanf.propertyDrawer
 	/// Shows you all values under the object reference
 	/// Also provides a button to create a new ScriptableObject if property is null.
 	/// </summary>
-#if UNITY_EDITOR
+    #if UNITY_EDITOR
 	[CustomPropertyDrawer(typeof(ScriptableObject), true)]
 	public class ScriptableObjectDrawer : PropertyDrawer
 	{
