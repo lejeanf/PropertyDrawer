@@ -18,7 +18,7 @@ namespace jeanf.validationTools
             if(!BuildPipeline.isBuildingPlayer) return;
 
             var statusMessage = AreSceneValidationComponentsValid(scene);
-            if (statusMessage.Status)
+            if (!statusMessage.IsValid)
             {
                 throw  new BuildFailedException($"The scene {scene.name} has failed validation. errors: {string.Join("||| ", statusMessage.ErrorMessages)}");
             }
@@ -26,7 +26,7 @@ namespace jeanf.validationTools
 
         private static StatusMessage AreSceneValidationComponentsValid(Scene scene)
         {
-            StatusMessage statusMessage = new StatusMessage(status:true, null);
+            var statusMessage = new StatusMessage(isValid: true, null);
             foreach (var rootGameObject in scene.GetRootGameObjects())
             {
                 var validatables = rootGameObject.GetComponentsInChildren<IValidatable>();
@@ -35,7 +35,7 @@ namespace jeanf.validationTools
                 {
                     if (!validatable.IsValid)
                     {
-                        statusMessage.Status = false;
+                        statusMessage.IsValid = false;
                         statusMessage.ErrorMessages.Add($"class {validatable.GetType().Name} has failed validation. validatable: [{validatable}]");
                     }
                 }
@@ -45,12 +45,12 @@ namespace jeanf.validationTools
 
         private struct StatusMessage
         {
-            public bool Status;
+            public bool IsValid;
             public List<string> ErrorMessages;
 
-            public StatusMessage(bool status, List<string> errorMessages)
+            public StatusMessage(bool isValid, List<string> errorMessages)
             {
-                this.Status = status;
+                this.IsValid = isValid;
                 this.ErrorMessages = errorMessages;
             }
         }
