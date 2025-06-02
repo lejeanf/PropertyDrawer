@@ -1,20 +1,9 @@
 namespace jeanf.propertyDrawer
 {
-	// Developed by Tom Kail at Inkle
-// Released under the MIT Licence as held at https://opensource.org/licenses/MIT
-
-// original script can be found at here: https://gist.github.com/tomkail/ba4136e6aa990f4dc94e0d39ec6a058c
-// I took the script from this location and added it to my property-drawer package to extend its capabilities.
-
-// Must be placed within a folder named "Editor"
 	using System;
-	using System.Reflection;
-	using System.Collections;
 	using System.Collections.Generic;
 	using UnityEngine;
 	using UnityEditor;
-	using Object = UnityEngine.Object;
-
 
 	public class ScriptableObjectDrawerAttribute : Attribute
 	{
@@ -23,15 +12,13 @@ namespace jeanf.propertyDrawer
 		}
 	}
 
-	/// <summary>
-	/// Extends how ScriptableObject object references are displayed in the inspector
-	/// Shows you all values under the object reference
-	/// Also provides a button to create a new ScriptableObject if property is null.
-	/// </summary>
-    #if UNITY_EDITOR
+#if UNITY_EDITOR
 	[CustomPropertyDrawer(typeof(ScriptableObject), true)]
 	public class ScriptableObjectDrawer : PropertyDrawer
 	{
+		// Cache to prevent multiple SerializedObjects for same asset
+		private static Dictionary<int, SerializedObject> serializedObjectCache = new Dictionary<int, SerializedObject>();
+		
 		private static bool CheckAttribute(System.Type t)
 		{
 			System.Attribute[] attrs = System.Attribute.GetCustomAttributes(t);
@@ -48,6 +35,7 @@ namespace jeanf.propertyDrawer
 		public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
 		{
 			float totalHeight = EditorGUIUtility.singleLineHeight;
+			
 			if (property.objectReferenceValue == null)
 			{
 				return totalHeight;
@@ -55,25 +43,31 @@ namespace jeanf.propertyDrawer
 
 			if (!AreAnySubPropertiesVisible(property))
 				return totalHeight;
+				
 			if (property.isExpanded)
 			{
 				var data = property.objectReferenceValue as ScriptableObject;
 				if (data == null) return EditorGUIUtility.singleLineHeight;
-				SerializedObject serializedObject = new SerializedObject(data);
+				
+				// Use cached or create new SerializedObject
+				SerializedObject serializedObject = GetOrCreateSerializedObject(data);
 				SerializedProperty prop = serializedObject.GetIterator();
+				
 				if (prop.NextVisible(true))
 				{
 					do
 					{
 						if (prop.name == "m_Script") continue;
 						var subProp = serializedObject.FindProperty(prop.name);
-						float height = EditorGUI.GetPropertyHeight(subProp, null, true) +
-						               EditorGUIUtility.standardVerticalSpacing;
-						totalHeight += height;
+						if (subProp != null)
+						{
+							float height = EditorGUI.GetPropertyHeight(subProp, null, true) +
+							               EditorGUIUtility.standardVerticalSpacing;
+							totalHeight += height;
+						}
 					} while (prop.NextVisible(false));
 				}
 
-				// Add a tiny bit of height if open for the background
 				totalHeight += EditorGUIUtility.standardVerticalSpacing;
 			}
 
@@ -87,6 +81,7 @@ namespace jeanf.propertyDrawer
 		public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
 		{
 			EditorGUI.BeginProperty(position, label, property);
+			
 			if (property.objectReferenceValue != null && AreAnySubPropertiesVisible(property))
 			{
 				if (AreAnySubPropertiesVisible(property) && CheckAttribute(property.objectReferenceValue.GetType()))
@@ -105,75 +100,166 @@ namespace jeanf.propertyDrawer
 				}
 
 				const int offset = 2;
+				EditorGUI.BeginChangeCheck();
 				EditorGUI.PropertyField(
 					new Rect(EditorGUIUtility.labelWidth + offset, position.y,
 						position.width - EditorGUIUtility.labelWidth - offset, EditorGUIUtility.singleLineHeight),
 					property, GUIContent.none, true);
-				if (GUI.changed) property.serializedObject.ApplyModifiedProperties();
-				if (property.objectReferenceValue == null) EditorGUIUtility.ExitGUI();
+				
+				if (EditorGUI.EndChangeCheck())
+				{
+					property.serializedObject.ApplyModifiedProperties();
+					ClearCacheForObject(property.objectReferenceValue);
+				}
+				
+				if (property.objectReferenceValue == null) 
+				{
+					EditorGUI.EndProperty();
+					return;
+				}
 
 				if (property.isExpanded)
 				{
-					// Draw a background that shows us clearly which fields are part of the ScriptableObject
-					GUI.Box(
-						new Rect(0,
-							position.y + EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing -
-							1, Screen.width,
-							position.height - EditorGUIUtility.singleLineHeight -
-							EditorGUIUtility.standardVerticalSpacing), "");
-
-					EditorGUI.indentLevel++;
-					var data = (ScriptableObject)property.objectReferenceValue;
-					SerializedObject serializedObject = new SerializedObject(data);
-
-
-					// Iterate over all the values and draw them
-					SerializedProperty prop = serializedObject.GetIterator();
-					float y = position.y + EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
-					if (prop.NextVisible(true))
-					{
-						do
-						{
-							// Don't bother drawing the class file
-							if (prop.name == "m_Script") continue;
-							float height = EditorGUI.GetPropertyHeight(prop, new GUIContent(prop.displayName), true);
-							EditorGUI.PropertyField(new Rect(position.x, y, position.width, height), prop, true);
-							y += height + EditorGUIUtility.standardVerticalSpacing;
-						} while (prop.NextVisible(false));
-					}
-
-					if (GUI.changed)
-						serializedObject.ApplyModifiedProperties();
-
-					EditorGUI.indentLevel--;
+					DrawExpandedProperties(position, property);
 				}
 			}
 			else
 			{
+				EditorGUI.BeginChangeCheck();
 				EditorGUI.ObjectField(
 					new Rect(position.x, position.y, position.width - 60, EditorGUIUtility.singleLineHeight), property);
-				if (GUI.Button(
-					    new Rect(position.x + position.width - 58, position.y, 58, EditorGUIUtility.singleLineHeight),
-					    "Create"))
+				
+				if (EditorGUI.EndChangeCheck())
 				{
-					string selectedAssetPath = "Assets";
-					if (property.serializedObject.targetObject is MonoBehaviour)
-					{
-						MonoScript ms =
-							MonoScript.FromMonoBehaviour((MonoBehaviour)property.serializedObject.targetObject);
-						selectedAssetPath = System.IO.Path.GetDirectoryName(AssetDatabase.GetAssetPath(ms));
-					}
-
-					Type type = fieldInfo.FieldType;
-					if (type.IsArray) type = type.GetElementType();
-					else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
-						type = type.GetGenericArguments()[0];
-					property.objectReferenceValue = CreateAssetWithSavePrompt(type, selectedAssetPath);
+					property.serializedObject.ApplyModifiedProperties();
+				}
+				
+				if (GUI.Button(
+					new Rect(position.x + position.width - 58, position.y, 58, EditorGUIUtility.singleLineHeight),
+					"Create"))
+				{
+					CreateNewScriptableObject(property);
 				}
 			}
 
-			property.serializedObject.ApplyModifiedProperties();
 			EditorGUI.EndProperty();
+		}
+
+		private void DrawExpandedProperties(Rect position, SerializedProperty property)
+		{
+			GUI.Box(
+				new Rect(0,
+					position.y + EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing - 1, 
+					Screen.width,
+					position.height - EditorGUIUtility.singleLineHeight - EditorGUIUtility.standardVerticalSpacing), 
+				"");
+
+			EditorGUI.indentLevel++;
+			var data = (ScriptableObject)property.objectReferenceValue;
+			SerializedObject serializedObject = GetOrCreateSerializedObject(data);
+
+			bool hasChanges = false;
+
+			SerializedProperty prop = serializedObject.GetIterator();
+			float y = position.y + EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
+			
+			if (prop.NextVisible(true))
+			{
+				do
+				{
+					if (prop.name == "m_Script") continue;
+					
+					float height = EditorGUI.GetPropertyHeight(prop, new GUIContent(prop.displayName), true);
+					
+					EditorGUI.BeginChangeCheck();
+					EditorGUI.PropertyField(new Rect(position.x, y, position.width, height), prop, true);
+					
+					if (EditorGUI.EndChangeCheck())
+					{
+						hasChanges = true;
+					}
+					
+					y += height + EditorGUIUtility.standardVerticalSpacing;
+				} while (prop.NextVisible(false));
+			}
+
+			if (hasChanges)
+			{
+				serializedObject.ApplyModifiedProperties();
+				EditorUtility.SetDirty(data);
+				AssetDatabase.SaveAssets();
+			}
+
+			EditorGUI.indentLevel--;
+		}
+
+		private void CreateNewScriptableObject(SerializedProperty property)
+		{
+			string selectedAssetPath = "Assets";
+			if (property.serializedObject.targetObject is MonoBehaviour)
+			{
+				MonoScript ms = MonoScript.FromMonoBehaviour((MonoBehaviour)property.serializedObject.targetObject);
+				selectedAssetPath = System.IO.Path.GetDirectoryName(AssetDatabase.GetAssetPath(ms));
+			}
+
+			Type type = GetFieldType();
+			var newAsset = CreateAssetWithSavePrompt(type, selectedAssetPath);
+			if (newAsset != null)
+			{
+				property.objectReferenceValue = newAsset;
+				property.serializedObject.ApplyModifiedProperties();
+			}
+		}
+
+		private static SerializedObject GetOrCreateSerializedObject(ScriptableObject target)
+		{
+			if (target == null) return null;
+			
+			int instanceId = target.GetInstanceID();
+			
+			if (serializedObjectCache.TryGetValue(instanceId, out SerializedObject cached))
+			{
+				if (cached != null && cached.targetObject != null)
+				{
+					cached.Update(); // Ensure we have latest data
+					return cached;
+				}
+				else
+				{
+					serializedObjectCache.Remove(instanceId);
+				}
+			}
+			
+			var newSerializedObject = new SerializedObject(target);
+			serializedObjectCache[instanceId] = newSerializedObject;
+			return newSerializedObject;
+		}
+
+		private static void ClearCacheForObject(UnityEngine.Object target)
+		{
+			if (target == null) return;
+			
+			int instanceId = target.GetInstanceID();
+			if (serializedObjectCache.TryGetValue(instanceId, out SerializedObject cached))
+			{
+				cached?.Dispose();
+				serializedObjectCache.Remove(instanceId);
+			}
+		}
+
+		[UnityEditor.Callbacks.DidReloadScripts]
+		private static void OnScriptsReloaded()
+		{
+			ClearAllCache();
+		}
+
+		private static void ClearAllCache()
+		{
+			foreach (var kvp in serializedObjectCache)
+			{
+				kvp.Value?.Dispose();
+			}
+			serializedObjectCache.Clear();
 		}
 
 		public static T _GUILayout<T>(string label, T objectReferenceValue, ref bool isExpanded)
@@ -185,52 +271,32 @@ namespace jeanf.propertyDrawer
 		public static T _GUILayout<T>(GUIContent label, T objectReferenceValue, ref bool isExpanded)
 			where T : ScriptableObject
 		{
-			Rect position = EditorGUILayout.BeginVertical();
-
-			var propertyRect = Rect.zero;
-			var guiContent = label;
-			var foldoutRect = new Rect(position.x, position.y, EditorGUIUtility.labelWidth,
-				EditorGUIUtility.singleLineHeight);
-			if (objectReferenceValue != null)
-			{
-				isExpanded = EditorGUI.Foldout(foldoutRect, isExpanded, guiContent, true);
-
-				var indentedPosition = EditorGUI.IndentedRect(position);
-				var indentOffset = indentedPosition.x - position.x;
-				propertyRect = new Rect(position.x + EditorGUIUtility.currentViewWidth - indentOffset, position.y,
-					position.width - EditorGUIUtility.currentViewWidth - indentOffset,
-					EditorGUIUtility.singleLineHeight);
-			}
-			else
-			{
-				// So yeah having a foldout look like a label is a weird hack 
-				// but both code paths seem to need to be a foldout or 
-				// the object field control goes weird when the codepath changes.
-				// I guess because foldout is an interactable control of its own and throws off the controlID?
-				foldoutRect.x += 12;
-				EditorGUI.Foldout(foldoutRect, isExpanded, guiContent, true, EditorStyles.label);
-
-				var indentedPosition = EditorGUI.IndentedRect(position);
-				var indentOffset = indentedPosition.x - position.x;
-				propertyRect = new Rect(position.x + EditorGUIUtility.labelWidth - indentOffset, position.y,
-					position.width - EditorGUIUtility.labelWidth - indentOffset - 60,
-					EditorGUIUtility.singleLineHeight);
-			}
+			EditorGUILayout.BeginVertical();
 
 			EditorGUILayout.BeginHorizontal();
-			objectReferenceValue =
-				EditorGUILayout.ObjectField(new GUIContent(" "), objectReferenceValue, typeof(T), false) as T;
-
+			
 			if (objectReferenceValue != null)
 			{
-
-				EditorGUILayout.EndHorizontal();
-				if (isExpanded)
-				{
-					DrawScriptableObjectChildFields(objectReferenceValue);
-				}
+				isExpanded = EditorGUILayout.Foldout(isExpanded, label, true);
 			}
 			else
+			{
+				EditorGUILayout.LabelField(label);
+			}
+
+			EditorGUI.BeginChangeCheck();
+			var newValue = EditorGUILayout.ObjectField(objectReferenceValue, typeof(T), false) as T;
+			
+			if (EditorGUI.EndChangeCheck())
+			{
+				if (objectReferenceValue != newValue)
+				{
+					ClearCacheForObject(objectReferenceValue);
+					objectReferenceValue = newValue;
+				}
+			}
+
+			if (objectReferenceValue == null)
 			{
 				if (GUILayout.Button("Create", GUILayout.Width(buttonWidth)))
 				{
@@ -241,8 +307,13 @@ namespace jeanf.propertyDrawer
 						objectReferenceValue = (T)newAsset;
 					}
 				}
+			}
 
-				EditorGUILayout.EndHorizontal();
+			EditorGUILayout.EndHorizontal();
+
+			if (objectReferenceValue != null && isExpanded)
+			{
+				DrawScriptableObjectChildFields(objectReferenceValue);
 			}
 
 			EditorGUILayout.EndVertical();
@@ -251,26 +322,36 @@ namespace jeanf.propertyDrawer
 
 		static void DrawScriptableObjectChildFields<T>(T objectReferenceValue) where T : ScriptableObject
 		{
-			// Draw a background that shows us clearly which fields are part of the ScriptableObject
 			EditorGUI.indentLevel++;
 			EditorGUILayout.BeginVertical(GUI.skin.box);
 
-			var serializedObject = new SerializedObject(objectReferenceValue);
-			// Iterate over all the values and draw them
+			var serializedObject = GetOrCreateSerializedObject(objectReferenceValue);
+			bool hasChanges = false;
+			
 			SerializedProperty prop = serializedObject.GetIterator();
 			if (prop.NextVisible(true))
 			{
 				do
 				{
-					// Don't bother drawing the class file
 					if (prop.name == "m_Script") continue;
+					
+					EditorGUI.BeginChangeCheck();
 					EditorGUILayout.PropertyField(prop, true);
+					
+					if (EditorGUI.EndChangeCheck())
+					{
+						hasChanges = true;
+					}
 				} while (prop.NextVisible(false));
 			}
 
-			if (GUI.changed)
+			if (hasChanges)
+			{
 				serializedObject.ApplyModifiedProperties();
-			serializedObject.Dispose();
+				EditorUtility.SetDirty(objectReferenceValue);
+				AssetDatabase.SaveAssets();
+			}
+
 			EditorGUILayout.EndVertical();
 			EditorGUI.indentLevel--;
 		}
@@ -278,50 +359,31 @@ namespace jeanf.propertyDrawer
 		public static T DrawScriptableObjectField<T>(GUIContent label, T objectReferenceValue, ref bool isExpanded)
 			where T : ScriptableObject
 		{
-			Rect position = EditorGUILayout.BeginVertical();
+			EditorGUILayout.BeginVertical();
+			EditorGUILayout.BeginHorizontal();
 
-			var propertyRect = Rect.zero;
-			var guiContent = label;
-			var foldoutRect = new Rect(position.x, position.y, EditorGUIUtility.labelWidth,
-				EditorGUIUtility.singleLineHeight);
 			if (objectReferenceValue != null)
 			{
-				isExpanded = EditorGUI.Foldout(foldoutRect, isExpanded, guiContent, true);
-
-				var indentedPosition = EditorGUI.IndentedRect(position);
-				var indentOffset = indentedPosition.x - position.x;
-				propertyRect = new Rect(position.x + EditorGUIUtility.labelWidth - indentOffset, position.y,
-					position.width - EditorGUIUtility.labelWidth - indentOffset, EditorGUIUtility.singleLineHeight);
+				isExpanded = EditorGUILayout.Foldout(isExpanded, label, true);
 			}
 			else
 			{
-				// So yeah having a foldout look like a label is a weird hack 
-				// but both code paths seem to need to be a foldout or 
-				// the object field control goes weird when the codepath changes.
-				// I guess because foldout is an interactable control of its own and throws off the controlID?
-				foldoutRect.x += 12;
-				EditorGUI.Foldout(foldoutRect, isExpanded, guiContent, true, EditorStyles.label);
-
-				var indentedPosition = EditorGUI.IndentedRect(position);
-				var indentOffset = indentedPosition.x - position.x;
-				propertyRect = new Rect(position.x + EditorGUIUtility.labelWidth - indentOffset, position.y,
-					position.width - EditorGUIUtility.labelWidth - indentOffset - 60,
-					EditorGUIUtility.singleLineHeight);
+				EditorGUILayout.LabelField(label);
 			}
 
-			EditorGUILayout.BeginHorizontal();
-			objectReferenceValue =
-				EditorGUILayout.ObjectField(new GUIContent(" "), objectReferenceValue, typeof(T), false) as T;
-
-			if (objectReferenceValue != null)
+			EditorGUI.BeginChangeCheck();
+			var newValue = EditorGUILayout.ObjectField(objectReferenceValue, typeof(T), false) as T;
+			
+			if (EditorGUI.EndChangeCheck())
 			{
-				EditorGUILayout.EndHorizontal();
-				if (isExpanded)
+				if (objectReferenceValue != newValue)
 				{
-
+					ClearCacheForObject(objectReferenceValue);
+					objectReferenceValue = newValue;
 				}
 			}
-			else
+
+			if (objectReferenceValue == null)
 			{
 				if (GUILayout.Button("Create", GUILayout.Width(buttonWidth)))
 				{
@@ -332,20 +394,20 @@ namespace jeanf.propertyDrawer
 						objectReferenceValue = (T)newAsset;
 					}
 				}
-
-				EditorGUILayout.EndHorizontal();
 			}
 
+			EditorGUILayout.EndHorizontal();
 			EditorGUILayout.EndVertical();
+			
 			return objectReferenceValue;
 		}
 
-		// Creates a new ScriptableObject via the default Save File panel
 		static ScriptableObject CreateAssetWithSavePrompt(Type type, string path)
 		{
 			path = EditorUtility.SaveFilePanelInProject("Save ScriptableObject", type.Name + ".asset", "asset",
 				"Enter a file name for the ScriptableObject.", path);
 			if (path == "") return null;
+			
 			ScriptableObject asset = ScriptableObject.CreateInstance(type);
 			AssetDatabase.CreateAsset(asset, path);
 			AssetDatabase.SaveAssets();
@@ -367,14 +429,15 @@ namespace jeanf.propertyDrawer
 		static bool AreAnySubPropertiesVisible(SerializedProperty property)
 		{
 			var data = (ScriptableObject)property.objectReferenceValue;
-			SerializedObject serializedObject = new SerializedObject(data);
-
+			if (data == null) return false;
+			
+			SerializedObject serializedObject = GetOrCreateSerializedObject(data);
 			SerializedProperty prop = serializedObject.GetIterator();
 
 			while (prop.NextVisible(true))
 			{
 				if (prop.name == "m_Script") continue;
-				return true; //if theres any visible property other than m_script
+				return true;
 			}
 
 			return false;
