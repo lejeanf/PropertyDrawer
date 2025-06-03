@@ -1,5 +1,9 @@
 namespace jeanf.propertyDrawer
 {
+	// Developed by Tom Kail at Inkle
+	// Released under the MIT Licence as held at https://opensource.org/licenses/MIT
+	// Fixed version addressing multiple editing issues
+
 	using System;
 	using System.Collections.Generic;
 	using UnityEngine;
@@ -51,6 +55,10 @@ namespace jeanf.propertyDrawer
 				
 				// Use cached or create new SerializedObject
 				SerializedObject serializedObject = GetOrCreateSerializedObject(data);
+				
+				// Make sure to update the serialized object to get accurate data
+				serializedObject.Update();
+				
 				SerializedProperty prop = serializedObject.GetIterator();
 				
 				if (prop.NextVisible(true))
@@ -58,17 +66,16 @@ namespace jeanf.propertyDrawer
 					do
 					{
 						if (prop.name == "m_Script") continue;
-						var subProp = serializedObject.FindProperty(prop.name);
-						if (subProp != null)
-						{
-							float height = EditorGUI.GetPropertyHeight(subProp, null, true) +
-							               EditorGUIUtility.standardVerticalSpacing;
-							totalHeight += height;
-						}
+						
+						// Get property height including children if it's expanded
+						float propertyHeight = EditorGUI.GetPropertyHeight(prop, true);
+						totalHeight += propertyHeight + EditorGUIUtility.standardVerticalSpacing;
+						
 					} while (prop.NextVisible(false));
 				}
 
-				totalHeight += EditorGUIUtility.standardVerticalSpacing;
+				// Add extra spacing for the background box
+				totalHeight += EditorGUIUtility.standardVerticalSpacing * 2;
 			}
 
 			return totalHeight;
@@ -82,8 +89,10 @@ namespace jeanf.propertyDrawer
 		{
 			EditorGUI.BeginProperty(position, label, property);
 			
+			// Handle the case where we have a valid object reference
 			if (property.objectReferenceValue != null && AreAnySubPropertiesVisible(property))
 			{
+				// Draw foldout or label based on attribute
 				if (AreAnySubPropertiesVisible(property) && CheckAttribute(property.objectReferenceValue.GetType()))
 				{
 					property.isExpanded =
@@ -99,6 +108,7 @@ namespace jeanf.propertyDrawer
 					property.isExpanded = false;
 				}
 
+				// Draw the object field
 				const int offset = 2;
 				EditorGUI.BeginChangeCheck();
 				EditorGUI.PropertyField(
@@ -109,6 +119,7 @@ namespace jeanf.propertyDrawer
 				if (EditorGUI.EndChangeCheck())
 				{
 					property.serializedObject.ApplyModifiedProperties();
+					// Clear cache when object reference changes
 					ClearCacheForObject(property.objectReferenceValue);
 				}
 				
@@ -118,6 +129,7 @@ namespace jeanf.propertyDrawer
 					return;
 				}
 
+				// Draw expanded properties
 				if (property.isExpanded)
 				{
 					DrawExpandedProperties(position, property);
@@ -125,6 +137,7 @@ namespace jeanf.propertyDrawer
 			}
 			else
 			{
+				// Draw object field with create button when null
 				EditorGUI.BeginChangeCheck();
 				EditorGUI.ObjectField(
 					new Rect(position.x, position.y, position.width - 60, EditorGUIUtility.singleLineHeight), property);
@@ -147,21 +160,25 @@ namespace jeanf.propertyDrawer
 
 		private void DrawExpandedProperties(Rect position, SerializedProperty property)
 		{
+			// Calculate the content area for expanded properties
+			float contentY = position.y + EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
+			float contentHeight = position.height - EditorGUIUtility.singleLineHeight - EditorGUIUtility.standardVerticalSpacing;
+			
+			// Draw background box
 			GUI.Box(
-				new Rect(0,
-					position.y + EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing - 1, 
-					Screen.width,
-					position.height - EditorGUIUtility.singleLineHeight - EditorGUIUtility.standardVerticalSpacing), 
-				"");
+				new Rect(position.x, contentY - 1, position.width, contentHeight + 1), 
+				"", GUI.skin.box);
 
 			EditorGUI.indentLevel++;
 			var data = (ScriptableObject)property.objectReferenceValue;
 			SerializedObject serializedObject = GetOrCreateSerializedObject(data);
 
+			// Track if any changes were made
 			bool hasChanges = false;
 
+			// Iterate over all properties and draw them
 			SerializedProperty prop = serializedObject.GetIterator();
-			float y = position.y + EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
+			float currentY = contentY + EditorGUIUtility.standardVerticalSpacing;
 			
 			if (prop.NextVisible(true))
 			{
@@ -169,20 +186,23 @@ namespace jeanf.propertyDrawer
 				{
 					if (prop.name == "m_Script") continue;
 					
-					float height = EditorGUI.GetPropertyHeight(prop, new GUIContent(prop.displayName), true);
+					float propertyHeight = EditorGUI.GetPropertyHeight(prop, true);
+					Rect propertyRect = new Rect(position.x, currentY, position.width, propertyHeight);
 					
 					EditorGUI.BeginChangeCheck();
-					EditorGUI.PropertyField(new Rect(position.x, y, position.width, height), prop, true);
+					EditorGUI.PropertyField(propertyRect, prop, true);
 					
 					if (EditorGUI.EndChangeCheck())
 					{
 						hasChanges = true;
 					}
 					
-					y += height + EditorGUIUtility.standardVerticalSpacing;
+					currentY += propertyHeight + EditorGUIUtility.standardVerticalSpacing;
+					
 				} while (prop.NextVisible(false));
 			}
 
+			// Apply changes and mark asset dirty
 			if (hasChanges)
 			{
 				serializedObject.ApplyModifiedProperties();
@@ -211,6 +231,7 @@ namespace jeanf.propertyDrawer
 			}
 		}
 
+		// Cache management methods
 		private static SerializedObject GetOrCreateSerializedObject(ScriptableObject target)
 		{
 			if (target == null) return null;
@@ -226,10 +247,12 @@ namespace jeanf.propertyDrawer
 				}
 				else
 				{
+					// Clean up invalid cache entry
 					serializedObjectCache.Remove(instanceId);
 				}
 			}
 			
+			// Create new SerializedObject and cache it
 			var newSerializedObject = new SerializedObject(target);
 			serializedObjectCache[instanceId] = newSerializedObject;
 			return newSerializedObject;
@@ -247,6 +270,7 @@ namespace jeanf.propertyDrawer
 			}
 		}
 
+		// Clean up cache when Unity recompiles or when leaving play mode
 		[UnityEditor.Callbacks.DidReloadScripts]
 		private static void OnScriptsReloaded()
 		{
