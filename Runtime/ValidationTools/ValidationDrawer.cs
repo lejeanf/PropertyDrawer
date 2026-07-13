@@ -1,67 +1,66 @@
 using UnityEngine;
-using UnityEngine.UIElements;
 
 namespace jeanf.validationTools
 {
-    #if UNITY_EDITOR
+#if UNITY_EDITOR
     using UnityEditor;
 
+    /// <summary>
+    /// Draws a [Validation("...")] field. When the field is unset (null object
+    /// reference or empty string) it turns ORANGE — translucent wash + tinted
+    /// label + help box with the attribute's message — so the culprit field is
+    /// obvious at a glance. When set, it draws like a normal field.
+    /// NOTE: do not combine [Validation] with another drawer attribute
+    /// (e.g. [DrawIf]) on the same field — Unity only runs one PropertyDrawer.
+    /// </summary>
     [CustomPropertyDrawer(typeof(ValidationAttribute))]
     public class ValidationDrawer : PropertyDrawer
     {
-        private const int BoxPadding = 10;
-        private const float Padding = 10f;
-        private const float Offset = 15f;
+        private const float Spacing = 4f;
 
-        private float _height = 10f;
-        private float _helpBoxHeight = 0f;
-        
-        
         public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
         {
-            var propertyHeight = base.GetPropertyHeight(property, label);
-            
-            if (property.objectReferenceValue == null)
-            {
-                var customAttribute = attribute as ValidationAttribute;
-                var style = EditorStyles.helpBox;
-                style.alignment = TextAnchor.MiddleLeft;
-                style.wordWrap = true;
-                style.padding = new RectOffset(BoxPadding, BoxPadding, BoxPadding, BoxPadding);
-                style.fontSize = 12;
-
-                _helpBoxHeight = style.CalcHeight(new GUIContent(customAttribute.Text), Screen.width);
-                _height = _helpBoxHeight + propertyHeight + Offset;
-                return _height;
-            }
-            else
-            {
-                return propertyHeight;
-            }
-
+            var propertyHeight = EditorGUI.GetPropertyHeight(property, label, true);
+            if (!IsUnset(property)) return propertyHeight;
+            return propertyHeight + HelpBoxHeight() + Spacing * 2f;
         }
 
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
-            if (property.objectReferenceValue == null)
+            if (!IsUnset(property))
             {
-                var customAttribute = attribute as ValidationAttribute;
-
-                position.height = _helpBoxHeight;
-                position.y += Padding *.5f;
-                EditorGUI.HelpBox(position, customAttribute.Text, MessageType.Error);
-                position.height = _height;
-                EditorGUI.DrawRect(position, new Color(1f, .2f, .2f, .1f));
-
-                position.y += _helpBoxHeight + Padding;
-                position.height = base.GetPropertyHeight(property, label);
-                EditorGUI.PropertyField(position, property, new GUIContent(property.displayName));
+                EditorGUI.PropertyField(position, property, label, true);
+                return;
             }
-            else
+
+            // Orange wash behind the whole block: this field needs attention.
+            EditorGUI.DrawRect(position, ValidationUi.OrangeWash);
+
+            var message = (attribute as ValidationAttribute)?.Text;
+            if (string.IsNullOrEmpty(message)) message = $"'{property.displayName}' is not assigned.";
+
+            var helpRect = new Rect(position.x, position.y + Spacing, position.width, HelpBoxHeight());
+            EditorGUI.HelpBox(helpRect, message, MessageType.Warning);
+
+            var fieldRect = new Rect(position.x, helpRect.yMax + Spacing, position.width,
+                EditorGUI.GetPropertyHeight(property, label, true));
+            var previousColor = GUI.backgroundColor;
+            GUI.backgroundColor = ValidationUi.Orange;
+            EditorGUI.PropertyField(fieldRect, property, new GUIContent(label.text, label.image, message), true);
+            GUI.backgroundColor = previousColor;
+        }
+
+        private static float HelpBoxHeight() => EditorGUIUtility.singleLineHeight * 2f;
+
+        internal static bool IsUnset(SerializedProperty property)
+        {
+            switch (property.propertyType)
             {
-                EditorGUI.PropertyField(position, property, new GUIContent(property.displayName));
+                case SerializedPropertyType.ObjectReference: return property.objectReferenceValue == null;
+                case SerializedPropertyType.String: return string.IsNullOrEmpty(property.stringValue);
+                default: return false;
             }
         }
     }
-    #endif
+#endif
 }
