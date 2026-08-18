@@ -46,6 +46,37 @@ namespace jeanf.validationTools
         private static readonly List<ValidationIssue> Issues = new List<ValidationIssue>();
 
         /// <summary>
+        /// Layout version of the ValidationDrawer treatment, for custom editors whose fields are
+        /// only *conditionally* required (a [Validation] attribute would flag them unconditionally).
+        /// When the field is unset: warning box just above it, orange wash behind the block and an
+        /// orange label. When set, it draws like a normal field.
+        /// </summary>
+        public static void DrawRequiredField(SerializedProperty property, string message)
+        {
+            if (!ValidationDrawer.IsUnset(property))
+            {
+                EditorGUILayout.PropertyField(property, true);
+                return;
+            }
+
+            var block = EditorGUILayout.BeginVertical();
+            EditorGUI.DrawRect(block, OrangeWash);
+
+            EditorGUILayout.HelpBox(message, MessageType.Warning);
+
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField(new GUIContent(property.displayName, message), OrangeLabel,
+                GUILayout.Width(EditorGUIUtility.labelWidth - 2f));
+            var previousColor = GUI.backgroundColor;
+            GUI.backgroundColor = Orange;
+            EditorGUILayout.PropertyField(property, GUIContent.none, true);
+            GUI.backgroundColor = previousColor;
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.EndVertical();
+        }
+
+        /// <summary>
         /// Draws the orange "needs setup" banner for a component — title bar stripe plus the
         /// issue list — or nothing at all when the component is clean. ValidationInspectorBanner
         /// calls this for components using the default inspector; components with their own
