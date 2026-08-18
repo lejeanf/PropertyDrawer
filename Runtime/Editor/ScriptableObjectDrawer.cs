@@ -110,11 +110,12 @@ namespace jeanf.propertyDrawer
 					property.isExpanded = false;
 				}
 
-				// Draw the object field
+				// Draw the object field. The rect must be offset by position.x (the inspector margin),
+				// otherwise the field lands ~18px left of every standard field and breaks column alignment.
 				const int offset = 2;
 				EditorGUI.BeginChangeCheck();
 				EditorGUI.PropertyField(
-					new Rect(EditorGUIUtility.labelWidth + offset, position.y,
+					new Rect(position.x + EditorGUIUtility.labelWidth + offset, position.y,
 						position.width - EditorGUIUtility.labelWidth - offset, EditorGUIUtility.singleLineHeight),
 					property, GUIContent.none, true);
 				
