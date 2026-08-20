@@ -26,6 +26,8 @@ namespace jeanf.validationTools
     /// (field drawer, inspector banner, hierarchy marker, console log, build check):
     ///  1. Fields tagged [Validation("...")] that are unset (null Unity object,
     ///     fake-null destroyed reference, empty string, or empty list of either).
+    ///     A RequiredIf gate on the attribute skips the check while its bool
+    ///     member (on the same component) is false.
     ///  2. Components implementing IValidatable whose IsValid is false.
     /// Runtime-safe: no UnityEditor — usable for play-mode logs and build checks.
     /// </summary>
@@ -41,8 +43,9 @@ namespace jeanf.validationTools
 
             foreach (var field in GetValidatedFields(component.GetType()))
             {
-                if (IsSet(field.GetValue(component))) continue;
                 var attribute = (ValidationAttribute)field.GetCustomAttribute(typeof(ValidationAttribute));
+                if (!IsRequired(component, attribute)) continue;
+                if (IsSet(field.GetValue(component))) continue;
                 results.Add(new ValidationIssue(component, field.Name, attribute?.Text ?? $"'{field.Name}' is not assigned."));
             }
 
@@ -68,7 +71,8 @@ namespace jeanf.validationTools
             if (component == null) return false;
 
             foreach (var field in GetValidatedFields(component.GetType()))
-                if (!IsSet(field.GetValue(component)))
+                if (IsRequired(component, (ValidationAttribute)field.GetCustomAttribute(typeof(ValidationAttribute)))
+                    && !IsSet(field.GetValue(component)))
                     return true;
 
             return component is IValidatable validatable && !validatable.IsValid;
@@ -106,6 +110,32 @@ namespace jeanf.validationTools
                 }
                 default: return true;
             }
+        }
+
+        /// <summary>
+        /// Evaluates the attribute's RequiredIf gate ('!name' inverts). An unresolvable
+        /// or non-bool member counts as required — a typo must not silently disable a check.
+        /// </summary>
+        public static bool IsRequired(object target, ValidationAttribute attribute)
+        {
+            var condition = attribute?.RequiredIf;
+            if (string.IsNullOrEmpty(condition) || target == null) return true;
+
+            var invert = condition[0] == '!';
+            if (invert) condition = condition.Substring(1);
+
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            for (var type = target.GetType(); type != null; type = type.BaseType)
+            {
+                var field = type.GetField(condition, flags | BindingFlags.DeclaredOnly);
+                if (field != null && field.FieldType == typeof(bool))
+                    return (bool)field.GetValue(target) != invert;
+
+                var property = type.GetProperty(condition, flags | BindingFlags.DeclaredOnly);
+                if (property != null && property.PropertyType == typeof(bool) && property.CanRead)
+                    return (bool)property.GetValue(target) != invert;
+            }
+            return true;
         }
 
         private static FieldInfo[] GetValidatedFields(Type type)

@@ -21,13 +21,13 @@ namespace jeanf.validationTools
         public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
         {
             var propertyHeight = EditorGUI.GetPropertyHeight(property, label, true);
-            if (!IsUnset(property)) return propertyHeight;
+            if (!NeedsAttention(property)) return propertyHeight;
             return propertyHeight + HelpBoxHeight() + Spacing * 2f;
         }
 
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
-            if (!IsUnset(property))
+            if (!NeedsAttention(property))
             {
                 EditorGUI.PropertyField(position, property, label, true);
                 return;
@@ -51,6 +51,14 @@ namespace jeanf.validationTools
         }
 
         private static float HelpBoxHeight() => EditorGUIUtility.singleLineHeight * 2f;
+
+        /// <summary>Unset AND currently required (RequiredIf gate, evaluated on the component).</summary>
+        private bool NeedsAttention(SerializedProperty property)
+        {
+            if (!IsUnset(property)) return false;
+            return ValidationScanner.IsRequired(property.serializedObject.targetObject,
+                attribute as ValidationAttribute);
+        }
 
         internal static bool IsUnset(SerializedProperty property)
         {
