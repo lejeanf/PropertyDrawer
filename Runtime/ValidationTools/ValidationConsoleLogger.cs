@@ -26,7 +26,7 @@ namespace jeanf.validationTools
             };
         }
 
-        [MenuItem("Tools/propertyDrawer/Scan Open Scenes")]
+        [MenuItem("Tools/Jeanf/propertyDrawer/Scan Open Scenes")]
         public static void ScanOpenScenes()
         {
             Issues.Clear();
