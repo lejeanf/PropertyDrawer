@@ -23,11 +23,11 @@ namespace jeanf.validationTools
         private static readonly Color BackgroundSelectedProColor = new Color(0.1725f, 0.3647f, 0.5294f);
 
         private enum IssueScope { None, Self, InChildren }
-        private static readonly Dictionary<int, IssueScope> IssuesById = new Dictionary<int, IssueScope>();
+        private static readonly Dictionary<EntityId, IssueScope> IssuesById = new Dictionary<EntityId, IssueScope>();
 
         static ValidationHighlighter()
         {
-            EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyWindowItemOnGUI;
+            EditorApplication.hierarchyWindowItemByEntityIdOnGUI += OnHierarchyWindowItemOnGUI;
             EditorApplication.hierarchyChanged += ClearCache;
             Undo.undoRedoPerformed += ClearCache;
             // Field edits in the inspector don't fire hierarchyChanged — this does.
@@ -40,18 +40,18 @@ namespace jeanf.validationTools
             EditorApplication.RepaintHierarchyWindow();
         }
 
-        private static void OnHierarchyWindowItemOnGUI(int instanceID, Rect selectionRect)
+        private static void OnHierarchyWindowItemOnGUI(EntityId entityId, Rect selectionRect)
         {
             if (Event.current.type != EventType.Repaint) return;
 
-            if (!IssuesById.TryGetValue(instanceID, out var scope))
+            if (!IssuesById.TryGetValue(entityId, out var scope))
             {
-                scope = ComputeScope(EditorUtility.EntityIdToObject(instanceID) as GameObject);
-                IssuesById[instanceID] = scope;
+                scope = ComputeScope(EditorUtility.EntityIdToObject(entityId) as GameObject);
+                IssuesById[entityId] = scope;
             }
             if (scope == IssueScope.None) return;
 
-            var obj = EditorUtility.EntityIdToObject(instanceID) as GameObject;
+            var obj = EditorUtility.EntityIdToObject(entityId) as GameObject;
             if (obj == null) return;
 
             // Little orange dot left of the name — far enough left to clear the
@@ -74,7 +74,7 @@ namespace jeanf.validationTools
             labelRect.x += 16f; // skip the object icon
 
             var backgroundColor = EditorGUIUtility.isProSkin ? BackgroundProColor : BackgroundColor;
-            if (Selection.Contains(instanceID))
+            if (Selection.Contains(entityId))
                 backgroundColor = EditorGUIUtility.isProSkin ? BackgroundSelectedProColor : BackgroundSelectedColor;
 
             var backgroundRect = labelRect;

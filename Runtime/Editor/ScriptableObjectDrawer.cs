@@ -23,7 +23,7 @@ namespace jeanf.propertyDrawer
 	public class ScriptableObjectDrawer : PropertyDrawer
 	{
 		// Cache to prevent multiple SerializedObjects for same asset
-		private static Dictionary<int, SerializedObject> serializedObjectCache = new Dictionary<int, SerializedObject>();
+		private static Dictionary<EntityId, SerializedObject> serializedObjectCache = new Dictionary<EntityId, SerializedObject>();
 		
 		private static bool CheckAttribute(System.Type t)
 		{
@@ -239,7 +239,7 @@ namespace jeanf.propertyDrawer
 		{
 			if (target == null) return null;
 			
-			int instanceId = target.GetInstanceID();
+			EntityId instanceId = target.GetEntityId();
 			
 			if (serializedObjectCache.TryGetValue(instanceId, out SerializedObject cached))
 			{
@@ -265,7 +265,7 @@ namespace jeanf.propertyDrawer
 		{
 			if (target == null) return;
 			
-			int instanceId = target.GetInstanceID();
+			EntityId instanceId = target.GetEntityId();
 			if (serializedObjectCache.TryGetValue(instanceId, out SerializedObject cached))
 			{
 				cached?.Dispose();
